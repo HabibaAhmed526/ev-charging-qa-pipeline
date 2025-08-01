@@ -167,18 +167,6 @@ pytest tests/test_api_auth.py
 pytest --cov=src tests/
 ```
 
-### Adding New Data Sources
-
-To add new data sources, modify `src/web_scraper.py`:
-
-```python
-def scrape_new_source(self, url):
-    # Add your scraping logic here
-    response = self.session.get(url)
-    # Process the response
-    return processed_data
-```
-
 ### Monitoring
 
 The system includes comprehensive monitoring:
@@ -228,7 +216,3 @@ tail -f logs/pipeline.log
 # View API server logs
 tail -f logs/api.log
 ```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
