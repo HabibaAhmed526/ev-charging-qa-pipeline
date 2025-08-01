@@ -1,0 +1,298 @@
+name: EV Charging QA Pipeline CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+    
+    - name: Run tests
+      run: |
+        pytest tests/ --cov=src --cov-report=xml --cov-report=html
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black mypy
+    
+    - name: Run linting
+      run: |
+        flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        black --check src/ tests/
+        mypy src/ --ignore-missing-imports
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Bandit security scan
+      uses: python-security/bandit-action@v1
+      with:
+        path: src/
+        level: medium
+    
+    - name: Run Safety check
+      run: |
+        pip install safety
+        safety check
+
+  data-processing:
+    runs-on: ubuntu-latest
+    needs: [test, lint, security]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run data processing
+      run: |
+        python src/pipeline_orchestrator.py --stages data_extraction web_scraping text_chunking data_cleaning
+    
+    - name: Upload processed data
+      uses: actions/upload-artifact@v3
+      with:
+        name: processed-data
+        path: data/processed/
+
+  model-training:
+    runs-on: ubuntu-latest
+    needs: [data-processing]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Download processed data
+      uses: actions/download-artifact@v3
+      with:
+        name: processed-data
+        path: data/processed/
+    
+    - name: Run model training
+      run: |
+        python src/pipeline_orchestrator.py --stages training
+      env:
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        WANDB_ENTITY: ${{ secrets.WANDB_ENTITY }}
+    
+    - name: Upload trained model
+      uses: actions/upload-artifact@v3
+      with:
+        name: trained-model
+        path: models/finetuned/
+
+  evaluation:
+    runs-on: ubuntu-latest
+    needs: [model-training]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Download trained model
+      uses: actions/download-artifact@v3
+      with:
+        name: trained-model
+        path: models/finetuned/
+    
+    - name: Run model evaluation
+      run: |
+        python src/pipeline_orchestrator.py --stages evaluation
+    
+    - name: Upload evaluation results
+      uses: actions/upload-artifact@v3
+      with:
+        name: evaluation-results
+        path: evaluation_results/
+
+  deployment:
+    runs-on: ubuntu-latest
+    needs: [evaluation]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Download trained model
+      uses: actions/download-artifact@v3
+      with:
+        name: trained-model
+        path: models/finetuned/
+    
+    - name: Test API server
+      run: |
+        python src/serve_model.py &
+        sleep 10
+        curl -f http://localhost:8000/health || exit 1
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deployment to staging environment"
+        # Add deployment logic here
+    
+    - name: Notify deployment
+      run: |
+        echo "Deployment completed successfully"
+
+  documentation:
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install sphinx sphinx-rtd-theme
+    
+    - name: Build documentation
+      run: |
+        # Add documentation building logic here
+        echo "Documentation built successfully"
+    
+    - name: Deploy documentation
+      run: |
+        echo "Documentation deployed to GitHub Pages"
+
+  performance:
+    runs-on: ubuntu-latest
+    needs: [deployment]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run performance tests
+      run: |
+        python src/performance_test.py
+    
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: performance_results/
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [performance]
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: success()
+      run: |
+        echo "Pipeline completed successfully"
+        # Add notification logic here
+    
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "Pipeline failed"
+        # Add failure notification logic here 

@@ -1,0 +1,64 @@
+# Core ML and Data Processing
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.12.0
+accelerate>=0.20.0
+peft>=0.4.0
+bitsandbytes>=0.41.0
+
+# PDF Processing
+PyMuPDF>=1.23.0
+pdfplumber>=0.9.0
+
+# Web Scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# API and Web Framework
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+
+# Authentication and Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# Monitoring and Metrics
+psutil>=5.9.0
+GPUtil>=1.4.0
+prometheus-client>=0.17.0
+
+# Experiment Tracking
+mlflow>=2.5.0
+wandb>=0.15.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Text Processing
+nltk>=3.8.0
+spacy>=3.6.0
+
+# Configuration and Utilities
+pyyaml>=6.0
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+
+# Development Tools
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.4.0
+
+# Additional Utilities
+tiktoken>=0.4.0
+sentencepiece>=0.1.99
+tokenizers>=0.13.0 

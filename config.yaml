@@ -1,0 +1,229 @@
+# EV Charging Infrastructure QA Pipeline Configuration
+# Target Domain: Electric Vehicle Charging Stations and Infrastructure
+
+# =============================================================================
+# DOMAIN CONFIGURATION
+# =============================================================================
+domain:
+  name: "Electric Vehicle Charging Infrastructure"
+  description: "AI-powered question-answering system for EV charging station implementation, maintenance, and best practices"
+  target_topics:
+    - "EV charging station installation"
+    - "Charging infrastructure planning"
+    - "Maintenance and safety protocols"
+    - "Regulatory compliance"
+    - "Technical specifications"
+    - "Cost optimization"
+    - "Environmental considerations"
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+environment:
+  # Model Configuration
+  base_model: "mistralai/Mistral-7B-Instruct-v0.2"
+  model_max_length: 2048
+  device: "auto"  # "auto", "cuda", "cpu"
+  
+  # Training Configuration
+  learning_rate: 2e-4
+  num_epochs: 2
+  batch_size: 1
+  gradient_accumulation_steps: 8
+  warmup_steps: 100
+  
+  # LoRA Configuration
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules: ["q_proj", "v_proj"]
+    bias: "none"
+    task_type: "CAUSAL_LM"
+  
+  # Quantization
+  quantization:
+    load_in_4bit: true
+    bnb_4bit_compute_dtype: "float16"
+    bnb_4bit_use_double_quant: true
+    bnb_4bit_quant_type: "nf4"
+
+# =============================================================================
+# DATA PROCESSING CONFIGURATION
+# =============================================================================
+data:
+  # Input/Output Paths
+  paths:
+    raw_pdfs: "data/raw/"
+    extracted_data: "data/extracted/"
+    qa_dataset: "data/qa/"
+    model_output: "data/mistral-lora-finetuned/"
+    merged_model: "data/mistral-lora-merged/"
+  
+  # PDF Processing
+  pdf:
+    min_page_chars: 100
+    extract_tables: true
+    extract_images: false
+    preserve_layout: true
+  
+  # Text Chunking
+  chunking:
+    chunk_size: 450  # words per chunk
+    min_chunk_words: 200
+    overlap: 50
+  
+  # QA Generation
+  qa_generation:
+    questions_per_chunk: 3
+    max_new_tokens: 512
+    temperature: 0.7
+    do_sample: false
+
+# =============================================================================
+# EVALUATION CONFIGURATION
+# =============================================================================
+evaluation:
+  # Benchmark Dataset
+  benchmark_size: 20
+  metrics:
+    - "bleu"
+    - "rouge"
+    - "exact_match"
+    - "f1_score"
+  
+  # Performance Testing
+  performance:
+    batch_size: 1
+    max_new_tokens: 150
+    num_requests: 100
+    concurrent_requests: 10
+
+# =============================================================================
+# API CONFIGURATION
+# =============================================================================
+api:
+  # Server Settings
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  
+  # Authentication
+  auth:
+    enabled: false
+    secret_key: "${API_SECRET_KEY}"
+    algorithm: "HS256"
+    access_token_expire_minutes: 30
+  
+  # Rate Limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+  
+  # Monitoring
+  monitoring:
+    enabled: true
+    metrics_endpoint: "/metrics"
+    health_check: "/health"
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  level: "INFO"
+  format: "json"
+  file: "logs/pipeline.log"
+  max_size: "10MB"
+  backup_count: 5
+
+# =============================================================================
+# EXPERIMENT TRACKING
+# =============================================================================
+experiment_tracking:
+  # MLflow Configuration
+  mlflow:
+    enabled: true
+    tracking_uri: "${MLFLOW_TRACKING_URI}"
+    experiment_name: "ev-charging-qa"
+  
+  # Weights & Biases
+  wandb:
+    enabled: false
+    project: "ev-charging-qa"
+    entity: "${WANDB_ENTITY}"
+
+# =============================================================================
+# PIPELINE STAGES
+# =============================================================================
+pipeline:
+  stages:
+    - name: "data_extraction"
+      enabled: true
+      script: "src/extract_pdf_text.py"
+    
+    - name: "text_chunking"
+      enabled: true
+      script: "src/chunk_text.py"
+    
+    - name: "qa_generation"
+      enabled: true
+      script: "src/generate_qa_mistral.py"
+    
+    - name: "data_cleaning"
+      enabled: true
+      script: "qa/clean_qa_dataset_mistral.py"
+    
+    - name: "data_formatting"
+      enabled: true
+      script: "qa/format_for_llama3.py"
+    
+    - name: "fine_tuning"
+      enabled: true
+      script: "src/finetune_and_test_llm.py"
+    
+    - name: "model_merging"
+      enabled: true
+      script: "src/merge_lora.py"
+    
+    - name: "evaluation"
+      enabled: true
+      script: "src/evaluate_model.py"
+    
+    - name: "serving"
+      enabled: true
+      script: "src/serve_model.py"
+
+# =============================================================================
+# MONITORING AND ALERTS
+# =============================================================================
+monitoring:
+  # Performance Metrics
+  metrics:
+    - "inference_latency"
+    - "throughput"
+    - "memory_usage"
+    - "gpu_utilization"
+    - "error_rate"
+  
+  # Alerts
+  alerts:
+    error_rate_threshold: 0.05
+    latency_threshold_ms: 5000
+    memory_threshold_gb: 16
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+security:
+  # API Security
+  cors:
+    enabled: true
+    origins: ["*"]
+    methods: ["GET", "POST"]
+    headers: ["*"]
+  
+  # Model Security
+  model:
+    max_input_length: 2048
+    max_output_length: 512
+    content_filtering: true

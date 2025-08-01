@@ -1,0 +1,15 @@
+{
+  "total_chunks": 775,
+  "total_characters": 393138,
+  "total_words": 59070,
+  "source_distribution": {
+    "HandbookforEVChargingInfrastructureImplementation081221.pdf": 775
+  },
+  "chunk_size_distribution": {
+    "small": 0,
+    "medium": 429,
+    "large": 346
+  },
+  "avg_chunk_length": 507.2748387096774,
+  "avg_chunk_words": 76.21935483870968
+}
