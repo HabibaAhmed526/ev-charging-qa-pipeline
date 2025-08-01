@@ -6,7 +6,7 @@ A complete pipeline for fine-tuning small language models on electric vehicle ch
 
 This pipeline handles the entire ML lifecycle for EV charging Q&A:
 
-- **Data Collection**: Scrapes web sources and extracts text from PDFs about EV charging
+- **Data Collection**: Extracts text from PDFs about EV charging
 - **Data Processing**: Cleans, chunks, and generates Q&A pairs from the collected data
 - **Model Training**: Fine-tunes Mistral-7B using LoRA for efficiency
 - **Evaluation**: Tests model performance on domain-specific benchmarks
